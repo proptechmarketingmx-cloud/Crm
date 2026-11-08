@@ -1,5 +1,8 @@
 use crate::error::AppError;
 
+mod queries;
+pub mod store;
+
 pub const EMBEDDING_DIMENSION: usize = 384;
 
 #[derive(Clone, Copy, Debug)]

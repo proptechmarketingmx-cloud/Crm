@@ -2,13 +2,25 @@ use crate::{
     cascade::cascade_score,
     error::AppError,
     graph::communities,
-    matching::match_score,
+    matching::{
+        match_score,
+        store::{recommend_properties, MatchingStore},
+    },
     models::{CommunityAssignment, PredictionRequest, PredictionResult},
 };
 
-/// Registra los comandos locales para que la interfaz pueda invocarlos.
-pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
-    builder.invoke_handler(tauri::generate_handler![predict_match, detect_communities])
+/// Registra los comandos locales y su conexión con sqlite-vec ya inicializada.
+pub fn register<R: tauri::Runtime>(
+    builder: tauri::Builder<R>,
+    matching_store: MatchingStore,
+) -> tauri::Builder<R> {
+    builder
+        .manage(matching_store)
+        .invoke_handler(tauri::generate_handler![
+            predict_match,
+            detect_communities,
+            recommend_properties
+        ])
 }
 
 /// Calcula score CNA y matching híbrido sin registrar IDs ni datos de entrada.

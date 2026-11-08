@@ -7,6 +7,8 @@ pub enum AppError {
     InvalidInput,
     #[error("No fue posible calcular la predicción.")]
     CalculationFailed,
+    #[error("La base de datos local o sqlite-vec no está disponible.")]
+    DatabaseUnavailable,
 }
 
 impl Serialize for AppError {
@@ -17,6 +19,9 @@ impl Serialize for AppError {
         serializer.serialize_str(match self {
             Self::InvalidInput => "Los datos de entrada no son válidos.",
             Self::CalculationFailed => "No fue posible calcular la predicción.",
+            Self::DatabaseUnavailable => {
+                "La base de datos local o sqlite-vec no está disponible."
+            }
         })
     }
 }
