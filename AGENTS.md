@@ -6,19 +6,21 @@ CRM inmobiliario **local-first** que combina análisis de redes sociales de clie
 ## 🏗️ Arquitectura Técnica Confirmada
 
 ### Frontend
-- **Tauri 2.x** (Rust) — shell nativa, ~80MB RAM
-- **SvelteKit** — UI reactiva
-- **Cytoscape.js** — visualización del grafo CNA
-- **MapLibre GL JS** — mapas y capas de calor EGA
-- **TanStack Query + IndexedDB** — estado offline-first
+- **Tauri 2.x** (Rust) — shell nativa ligera y con capacidades explícitas
+- **SvelteKit 5.x** — UI reactiva con runes (`$state`, `$derived`, `$effect`)
+- **Cytoscape.js 3.x** — visualización y manipulación del grafo CNA
+- **MapLibre GL JS 4.x** — mapas y capas de calor EGA mediante WebGL/WebGPU cuando esté disponible
+- **TanStack Query 5.x + Dexie.js 4.x** — caché asíncrona y acceso tipado a IndexedDB para el estado offline-first
+- **TypeScript estricto** (`strict: true`) y **Tailwind CSS 4.x**
 
 ### Backend (Rust sidecar)
 - **Lógica de negocio**: Rust (Tauri commands)
-- **Transaccional**: SQLite + `sqlite-vec` (vectores)
+- **Transaccional**: SQLite + `sqlite-vec` (vectores); usar `sqlx` o `rusqlite` según las necesidades de compilación y extensiones, evitando mantener dos capas de acceso sin una necesidad concreta
 - **Analítica OLAP**: DuckDB embebido
 - **Grafo CNA**: `petgraph` + persistencia en SQLite
 - **ML**: ONNX Runtime (modelos entrenados fuera, inferencia local)
-- **Geoespacial**: `georust` + operaciones tipo PostGIS
+- **Geoespacial**: crates del ecosistema `georust`, incluyendo H3 y PROJ cuando sean necesarios
+- **Cifrado y claves**: SQLCipher para cifrado de base de datos; Argon2id para derivar claves. Usar primitivas criptográficas de bibliotecas mantenidas y nunca simular cifrado o hashing.
 
 ## 📁 Estructura de Carpetas Esperada
 
@@ -71,8 +73,9 @@ pub struct Client {
 ```
 
 **Reglas de negocio**:
-- CURP y datos sensibles NUNCA se almacenan en claro. Usar `sqlcipher` o cifrado a nivel de aplicación con clave derivada de contraseña maestra.
+- CURP y datos sensibles NUNCA se almacenan en claro. Usar SQLCipher o cifrado autenticado a nivel de aplicación con clave derivada de contraseña maestra mediante Argon2id. Si se requiere comparar CURP sin recuperarlo, usar un HMAC con clave secreta en vez de un hash simple con salt.
 - Cada modificación genera un evento auditable en tabla `audit_log`.
+- No implementar criptografía casera ni reemplazar una protección requerida por una simulación o un marcador de posición.
 
 ### Módulo 2: Propiedades
 **Entidad `Property`**:
@@ -246,3 +249,10 @@ Cuando generes código:
 - **Inmutabilidad por defecto**: `&T` sobre `&mut T` cuando sea posible.
 - **Tests primero**: escribe el test antes de la implementación cuando sea viable.
 - **Documenta el "por qué"**, no el "qué".
+- En comandos Tauri, valida entradas, documenta en español y devuelve errores tipados (`Result<T, AppError>`); no ocultes fallos con valores por defecto.
+- En componentes Svelte, usa runes de Svelte 5, props tipadas y los servicios/queries existentes.
+- Para CNA, aprovecha `petgraph` y prueba los objetivos de rendimiento con grafos representativos de 10k nodos.
+- Para fórmulas CNA, EGA y matching, conserva exactamente las ecuaciones y coeficientes especificados; agrega pruebas numéricas para casos límite y documenta cualquier transformación posterior.
+- La ecuación de cascada sin normalización puede producir valores fuera de `[0,1]`. No afirmes que su resultado está normalizado ni cambies silenciosamente la fórmula: resuelve por separado la calibración/normalización requerida y deja explícito su efecto en la explicabilidad.
+- Si dos requisitos entran en conflicto o una dependencia/funcionalidad de seguridad no está disponible, explica el conflicto y pide una decisión o propone una alternativa segura; no la suplantes con una simulación.
+- No envíes datos de clientes, relaciones ni información sensible a servicios externos. La red solo se usa con acción explícita para fuentes públicas, sin incluir datos privados del CRM.
