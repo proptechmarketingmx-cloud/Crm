@@ -1,5 +1,9 @@
 use crate::{
     cascade::cascade_score,
+    data_entry::{
+        list_local_drafts, load_client_draft, load_property_draft, save_client_record,
+        save_property_record, suggest_locations, ClientDataStore,
+    },
     error::AppError,
     graph::communities,
     matching::{
@@ -15,15 +19,23 @@ use crate::{
 pub fn register<R: tauri::Runtime>(
     builder: tauri::Builder<R>,
     matching_store: MatchingStore,
+    client_data_store: ClientDataStore,
 ) -> tauri::Builder<R> {
     builder
         .manage(matching_store)
+        .manage(client_data_store)
         .invoke_handler(tauri::generate_handler![
             predict_match,
             detect_communities,
             recommend_properties,
             get_client_network,
-            get_ega_heatmap
+            get_ega_heatmap,
+            save_client_record,
+            save_property_record,
+            suggest_locations,
+            list_local_drafts,
+            load_client_draft,
+            load_property_draft
         ])
 }
 

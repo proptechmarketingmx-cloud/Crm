@@ -9,6 +9,8 @@ pub enum AppError {
     CalculationFailed,
     #[error("La base de datos local o sqlite-vec no está disponible.")]
     DatabaseUnavailable,
+    #[error("La base de datos no está cifrada con SQLCipher.")]
+    EncryptionUnavailable,
 }
 
 impl Serialize for AppError {
@@ -22,6 +24,7 @@ impl Serialize for AppError {
             Self::DatabaseUnavailable => {
                 "La base de datos local o sqlite-vec no está disponible."
             }
+            Self::EncryptionUnavailable => "La base de datos no está cifrada con SQLCipher.",
         })
     }
 }
