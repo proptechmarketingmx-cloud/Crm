@@ -4,7 +4,9 @@ use crate::{
     graph::communities,
     matching::{
         match_score,
-        store::{recommend_properties, MatchingStore},
+        store::{
+            get_client_network, get_ega_heatmap, recommend_properties, MatchingStore,
+        },
     },
     models::{CommunityAssignment, PredictionRequest, PredictionResult},
 };
@@ -19,7 +21,9 @@ pub fn register<R: tauri::Runtime>(
         .invoke_handler(tauri::generate_handler![
             predict_match,
             detect_communities,
-            recommend_properties
+            recommend_properties,
+            get_client_network,
+            get_ega_heatmap
         ])
 }
 

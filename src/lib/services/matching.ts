@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invokeWithLocalCache, type CachedCommandResult } from '$lib/services/local-cache';
 
 export interface MatchRequest {
 	clientId: string;
@@ -36,6 +36,61 @@ export interface MatchResponse {
 	matches: PropertyMatch[];
 }
 
-export function recommendProperties(request: MatchRequest): Promise<MatchResponse> {
-	return invoke<MatchResponse>('recommend_properties', { request });
+export type MatchResult = PropertyMatch;
+
+export interface GraphVisualizationData {
+	clientId: string;
+	nodes: Array<{
+		id: string;
+		label: string;
+		activity: 'purchase' | 'visit' | 'search' | 'none';
+	}>;
+	edges: Array<{
+		source: string;
+		target: string;
+		weight: number;
+		signals: string[];
+	}>;
+}
+
+export interface EGAHeatmapLayer {
+	type: 'FeatureCollection';
+	features: Array<{
+		type: 'Feature';
+		id: string;
+		geometry: {
+			type: 'Polygon';
+			coordinates: number[][][];
+		};
+		properties: {
+			score: number;
+			zoneId: string;
+			activity: number;
+			density: number;
+		};
+	}>;
+}
+
+export function recommendProperties(
+	request: MatchRequest
+): Promise<CachedCommandResult<MatchResponse>> {
+	return invokeWithLocalCache(
+		'recommend_properties',
+		{ request },
+		`matching:${request.clientId}:${request.topK}:${request.maxDistanceKm}`
+	);
+}
+
+export function getClientNetwork(
+	clientId: string
+): Promise<CachedCommandResult<GraphVisualizationData>> {
+	return invokeWithLocalCache(
+		'get_client_network',
+		{ clientId },
+		`network:${clientId}`
+	);
+}
+
+export function getEgaHeatmap(): Promise<CachedCommandResult<EGAHeatmapLayer>> {
+	return invokeWithLocalCache('get_ega_heatmap', {}, 'ega:heatmap');
 }

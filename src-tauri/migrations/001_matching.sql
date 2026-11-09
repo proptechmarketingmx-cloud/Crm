@@ -31,9 +31,31 @@ CREATE TABLE IF NOT EXISTS client_zone_cascade (
     PRIMARY KEY (client_id, zone_id)
 );
 
+CREATE TABLE IF NOT EXISTS graph_edges (
+    source_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    target_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    weight REAL NOT NULL CHECK (weight BETWEEN 0.0 AND 1.0),
+    PRIMARY KEY (source_id, target_id),
+    CHECK (source_id <> target_id)
+);
+
+CREATE TABLE IF NOT EXISTS client_activities (
+    client_id TEXT PRIMARY KEY NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    activity_type TEXT NOT NULL CHECK (
+        activity_type IN ('purchase', 'visit', 'search', 'none')
+    )
+);
+
 CREATE TABLE IF NOT EXISTS ega_zone_scores (
     zone_id TEXT PRIMARY KEY NOT NULL,
     score REAL NOT NULL CHECK (score BETWEEN 0.0 AND 1.0)
+);
+
+CREATE TABLE IF NOT EXISTS ega_heatmap_cells (
+    zone_id TEXT PRIMARY KEY NOT NULL REFERENCES ega_zone_scores(zone_id) ON DELETE CASCADE,
+    geometry_json TEXT NOT NULL,
+    activity REAL NOT NULL CHECK (activity >= 0.0),
+    density REAL NOT NULL CHECK (density >= 0.0)
 );
 
 CREATE TABLE IF NOT EXISTS osint_evidence (
@@ -55,5 +77,9 @@ CREATE INDEX IF NOT EXISTS idx_properties_zone
     ON properties (zone_id);
 CREATE INDEX IF NOT EXISTS idx_cascade_client_zone
     ON client_zone_cascade (client_id, zone_id);
+CREATE INDEX IF NOT EXISTS idx_graph_edges_source
+    ON graph_edges (source_id);
+CREATE INDEX IF NOT EXISTS idx_graph_edges_target
+    ON graph_edges (target_id);
 CREATE INDEX IF NOT EXISTS idx_osint_evidence_zone_consent_distance
     ON osint_evidence (zone_id, consent_status, distance_km);

@@ -57,6 +57,64 @@ pub struct AuditedEvidence {
     pub consent_id: String,
 }
 
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphVisualizationData {
+    pub client_id: Uuid,
+    pub nodes: Vec<GraphNode>,
+    pub edges: Vec<GraphEdge>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphNode {
+    pub id: String,
+    pub label: String,
+    pub activity: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphEdge {
+    pub source: String,
+    pub target: String,
+    pub weight: f64,
+    pub signals: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EGAHeatmapLayer {
+    #[serde(rename = "type")]
+    pub feature_collection_type: String,
+    pub features: Vec<EGAFeature>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct EGAFeature {
+    #[serde(rename = "type")]
+    pub feature_type: String,
+    pub id: String,
+    pub geometry: EGAGeometry,
+    pub properties: EGAProperties,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct EGAGeometry {
+    #[serde(rename = "type")]
+    pub geometry_type: String,
+    pub coordinates: Vec<Vec<Vec<f64>>>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EGAProperties {
+    pub score: f64,
+    pub zone_id: String,
+    pub activity: f64,
+    pub density: f64,
+}
+
 #[derive(Clone, Debug)]
 struct Candidate {
     property_id: Uuid,
@@ -217,6 +275,153 @@ impl MatchingStore {
 
         Ok(MatchResponse { matches })
     }
+
+    fn client_network(&self, client_id: Uuid) -> Result<GraphVisualizationData, AppError> {
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| AppError::DatabaseUnavailable)?;
+        let mut statement = connection
+            .prepare(
+                "SELECT source_id, target_id, weight
+                 FROM graph_edges
+                 WHERE source_id = ?1 OR target_id = ?1
+                 ORDER BY source_id, target_id
+                 LIMIT 500",
+            )
+            .map_err(|_| AppError::DatabaseUnavailable)?;
+        let rows = statement
+            .query_map([client_id.to_string()], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, f64>(2)?,
+                ))
+            })
+            .map_err(|_| AppError::DatabaseUnavailable)?;
+        let mut node_ids = std::collections::BTreeSet::from([client_id.to_string()]);
+        let mut edges = Vec::new();
+        for row in rows {
+            let (source, target, weight) = row.map_err(|_| AppError::DatabaseUnavailable)?;
+            if !weight.is_finite() || !(0.0..=1.0).contains(&weight) {
+                return Err(AppError::CalculationFailed);
+            }
+            node_ids.insert(source.clone());
+            node_ids.insert(target.clone());
+            edges.push(GraphEdge {
+                source,
+                target,
+                weight,
+                signals: Vec::new(),
+            });
+        }
+
+        let labels = node_ids
+            .iter()
+            .enumerate()
+            .map(|(index, id)| (id.clone(), format!("Contacto {}", index + 1)))
+            .collect::<std::collections::HashMap<_, _>>();
+        let nodes = node_ids
+            .into_iter()
+            .map(|id| {
+                let activity = connection
+                    .query_row(
+                        "SELECT activity_type FROM client_activities WHERE client_id = ?1",
+                        [&id],
+                        |row| row.get::<_, String>(0),
+                    )
+                    .optional()
+                    .map_err(|_| AppError::DatabaseUnavailable)?;
+                let activity = match activity.as_deref() {
+                    Some("purchase") => "purchase",
+                    Some("visit") => "visit",
+                    Some("search") => "search",
+                    Some("none") | None => "none",
+                    Some(_) => return Err(AppError::CalculationFailed),
+                };
+                Ok(GraphNode {
+                    label: if id == client_id.to_string() {
+                        "Cliente seleccionado".to_owned()
+                    } else {
+                        labels.get(&id).cloned().ok_or(AppError::CalculationFailed)?
+                    },
+                    id,
+                    activity: activity.to_owned(),
+                })
+            })
+            .collect::<Result<Vec<_>, AppError>>()?;
+
+        Ok(GraphVisualizationData {
+            client_id,
+            nodes,
+            edges,
+        })
+    }
+
+    fn ega_heatmap(&self) -> Result<EGAHeatmapLayer, AppError> {
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| AppError::DatabaseUnavailable)?;
+        let mut statement = connection
+            .prepare(
+                "SELECT cells.zone_id, cells.geometry_json, scores.score,
+                        cells.activity, cells.density
+                 FROM ega_heatmap_cells AS cells
+                 JOIN ega_zone_scores AS scores ON scores.zone_id = cells.zone_id
+                 ORDER BY cells.zone_id
+                 LIMIT 5000",
+            )
+            .map_err(|_| AppError::DatabaseUnavailable)?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, f64>(2)?,
+                    row.get::<_, f64>(3)?,
+                    row.get::<_, f64>(4)?,
+                ))
+            })
+            .map_err(|_| AppError::DatabaseUnavailable)?;
+        let mut features = Vec::new();
+        for row in rows {
+            let (zone_id, geometry_json, score, activity, density) =
+                row.map_err(|_| AppError::DatabaseUnavailable)?;
+            let coordinates =
+                serde_json::from_str::<Vec<Vec<Vec<f64>>>>(&geometry_json)
+                    .map_err(|_| AppError::CalculationFailed)?;
+            validate_polygon(&coordinates)?;
+            if !score.is_finite()
+                || !(0.0..=1.0).contains(&score)
+                || !activity.is_finite()
+                || activity < 0.0
+                || !density.is_finite()
+                || density < 0.0
+            {
+                return Err(AppError::CalculationFailed);
+            }
+            features.push(EGAFeature {
+                id: zone_id.clone(),
+                geometry: EGAGeometry {
+                    geometry_type: "Polygon".to_owned(),
+                    coordinates,
+                },
+                properties: EGAProperties {
+                    score,
+                    zone_id,
+                    activity,
+                    density,
+                },
+                feature_type: "Feature".to_owned(),
+            });
+        }
+
+        Ok(EGAHeatmapLayer {
+            feature_collection_type: "FeatureCollection".to_owned(),
+            features,
+        })
+    }
 }
 
 /// Recomienda propiedades próximas usando señales calculadas dentro de SQLite.
@@ -229,6 +434,41 @@ pub fn recommend_properties(
     store: State<'_, MatchingStore>,
 ) -> Result<MatchResponse, AppError> {
     store.recommend(&request)
+}
+
+/// Devuelve la red local del cliente con etiquetas seudónimas para la vista.
+#[tauri::command]
+pub fn get_client_network(
+    client_id: Uuid,
+    store: State<'_, MatchingStore>,
+) -> Result<GraphVisualizationData, AppError> {
+    store.client_network(client_id)
+}
+
+/// Devuelve hasta 5000 celdas EGA locales para renderizar sin cargar tiles externos.
+#[tauri::command]
+pub fn get_ega_heatmap(
+    store: State<'_, MatchingStore>,
+) -> Result<EGAHeatmapLayer, AppError> {
+    store.ega_heatmap()
+}
+
+fn validate_polygon(coordinates: &[Vec<Vec<f64>>]) -> Result<(), AppError> {
+    if coordinates.is_empty()
+        || coordinates.iter().any(|ring| {
+            ring.len() < 4
+                || ring.iter().any(|point| {
+                    point.len() < 2
+                        || !point[0].is_finite()
+                        || !point[1].is_finite()
+                        || !(-180.0..=180.0).contains(&point[0])
+                        || !(-90.0..=90.0).contains(&point[1])
+                })
+        })
+    {
+        return Err(AppError::CalculationFailed);
+    }
+    Ok(())
 }
 
 fn validate_request(request: &MatchRequest) -> Result<(), AppError> {

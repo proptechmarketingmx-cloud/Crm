@@ -11,6 +11,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 petgraph = "0.6"
 rusqlite = { version = "0.32", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 tauri = { version = "2", default-features = false }
 thiserror = "2"
 uuid = { version = "1", features = ["serde", "v4"] }
