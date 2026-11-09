@@ -1,0 +1,57 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "900CRM",
+  "version": "0.9.0",
+  "identifier": "com.900labs.crm",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "900CRM",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 520,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: asset: https://asset.localhost; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "shortDescription": "Offline-first CRM for developing nations",
+    "longDescription": "900CRM is a free, open-source, offline-first Customer Relationship Management tool designed for businesses in developing economies. Built with Tauri, Svelte, and Rust, it works on low-bandwidth connections, older hardware, and intermittent internet. No cloud dependency required.",
+    "copyright": "Copyright © 2026 900 Labs",
+    "category": "Business",
+    "linux": {
+      "deb": {
+        "depends": []
+      }
+    }
+  },
+  "plugins": {
+    "fs": {},
+    "shell": { "open": true },
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDUyQzQwOTE3MUM1OUJGQUQKUldTdHYxa2NGd25FVW1YNmtCak1IeXhsM2puOFh1YmRCbjUyVTR2Q0w2S2t4RmMyaTljeERuaFoK",
+      "endpoints": ["https://github.com/900Labs/900CRM/releases/latest/download/latest.json"]
+    }
+  }
+}

@@ -1,0 +1,17 @@
+[package]
+name = "crm-mcp"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Offline MCP readiness catalog for 900CRM"
+
+[dependencies]
+crm-sdk = { path = "../crm-sdk" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+crm-core = { path = "../crm-core" }

@@ -1,0 +1,4 @@
+name,email,phone,website,address_line1,address_line2,city,region,country,postal_code,description
+Northstar Studio,hello@northstar-studio.example.invalid,+10000001001,https://northstar-studio.example.invalid,10 Sample Street,Suite 1,Metro City,Central,Exampleland,10001,Synthetic design services organization for import smoke testing.
+Open Market Collective,contact@open-market-collective.example.invalid,+10000001002,https://open-market-collective.example.invalid,22 Demo Avenue,,Harbor Town,Coastal,Exampleland,20002,Synthetic cooperative vendor record.
+Field Service Group,info@field-service-group.example.invalid,+10000001003,https://field-service-group.example.invalid,7 Neutral Road,Unit 3,Plainview,North,Exampleland,30003,Synthetic field operations organization.

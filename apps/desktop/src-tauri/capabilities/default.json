@@ -1,0 +1,19 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permissions for the local main 900CRM window.",
+  "local": true,
+  "remote": null,
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "shell:allow-open",
+    "notification:default",
+    {
+      "identifier": "fs:scope",
+      "allow": ["$APPDATA/**", "$DOCUMENT/**", "$DESKTOP/**", "$DOWNLOAD/**"]
+    }
+  ]
+}

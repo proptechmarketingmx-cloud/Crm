@@ -1,0 +1,23 @@
+[workspace]
+members = [
+    "apps/desktop/src-tauri",
+    "crates/crm-core",
+    "crates/crm-mcp",
+    "crates/crm-sdk",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.9.0"
+authors = ["900 Labs <hello@900labs.com>"]
+license = "Apache-2.0"
+repository = "https://github.com/900Labs/900CRM"
+edition = "2021"
+rust-version = "1.70"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

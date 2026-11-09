@@ -1,0 +1,4 @@
+first_name,last_name,org_name,email,phone,address,city,country,notes
+Ari,Stone,Northstar Studio,ari.stone@example.invalid,+10000000001,10 Sample Street,Metro City,Exampleland,Imported sample contact for demo smoke testing.
+Mina,River,Open Market Collective,mina.river@example.invalid,+10000000002,22 Demo Avenue,Harbor Town,Exampleland,Prefers morning follow-up.
+Tala,Green,Field Service Group,tala.green@example.invalid,+10000000003,7 Neutral Road,Plainview,Exampleland,Interested in offline CRM workflows.
