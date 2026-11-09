@@ -2636,6 +2636,43 @@ fn optional_bool_value(value: &str) -> Option<bool> {
 // Export helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
+fn spreadsheet_safe_cell(value: &str) -> String {
+    // CSV quoting does not stop spreadsheet programs from evaluating formulas.
+    let formula_candidate = value.trim_start_matches(|character: char| {
+        character.is_whitespace() || character == '\u{feff}'
+    });
+    let Some(first_character) = formula_candidate.chars().next() else {
+        return value.to_owned();
+    };
+
+    let starts_with_formula_marker = match first_character {
+        '=' | '@' => true,
+        '+' | '-' => !formula_candidate
+            .parse::<f64>()
+            .is_ok_and(f64::is_finite),
+        _ => false,
+    };
+
+    if starts_with_formula_marker {
+        format!("'{value}")
+    } else {
+        value.to_owned()
+    }
+}
+
+fn write_safe_record<W, I, T>(writer: &mut csv::Writer<W>, record: I) -> Result<(), csv::Error>
+where
+    W: Write,
+    I: IntoIterator<Item = T>,
+    T: AsRef<str>,
+{
+    let safe_record = record
+        .into_iter()
+        .map(|field| spreadsheet_safe_cell(field.as_ref()))
+        .collect::<Vec<_>>();
+    writer.write_record(safe_record)
+}
+
 /// Serializes a slice of [`ContactCsvRow`] to CSV bytes.
 ///
 /// The output always includes a header row. Fields are quoted if they contain
@@ -2671,7 +2708,7 @@ pub fn write_contacts_csv<W: Write>(writer: W, rows: &[ContactCsvRow]) -> CrmRes
         "notes".to_string(),
     ];
     headers.extend(custom_headers.iter().cloned());
-    wtr.write_record(&headers)
+    write_safe_record(&mut wtr, &headers)
         .map_err(|e| CrmError::Csv(e.to_string()))?;
 
     for row in rows {
@@ -2691,7 +2728,7 @@ pub fn write_contacts_csv<W: Write>(writer: W, rows: &[ContactCsvRow]) -> CrmRes
                 .iter()
                 .map(|header| row.custom_fields.get(header).cloned().unwrap_or_default()),
         );
-        wtr.write_record(&record)
+        write_safe_record(&mut wtr, &record)
             .map_err(|e| CrmError::Csv(e.to_string()))?;
     }
 
@@ -2722,7 +2759,7 @@ pub fn write_deals_csv<W: Write>(writer: W, rows: &[DealCsvRow]) -> CrmResult<()
         "notes".to_string(),
     ];
     headers.extend(custom_headers.iter().cloned());
-    wtr.write_record(&headers)
+    write_safe_record(&mut wtr, &headers)
         .map_err(|e| CrmError::Csv(e.to_string()))?;
 
     for row in rows {
@@ -2739,7 +2776,7 @@ pub fn write_deals_csv<W: Write>(writer: W, rows: &[DealCsvRow]) -> CrmResult<()
                 .iter()
                 .map(|header| row.custom_fields.get(header).cloned().unwrap_or_default()),
         );
-        wtr.write_record(&record)
+        write_safe_record(&mut wtr, &record)
             .map_err(|e| CrmError::Csv(e.to_string()))?;
     }
 
@@ -2767,7 +2804,7 @@ pub fn write_activities_csv<W: Write>(writer: W, rows: &[ActivityCsvRow]) -> Crm
         "deal_id".to_string(),
     ];
     headers.extend(custom_headers.iter().cloned());
-    wtr.write_record(&headers)
+    write_safe_record(&mut wtr, &headers)
         .map_err(|e| CrmError::Csv(e.to_string()))?;
 
     for row in rows {
@@ -2787,7 +2824,7 @@ pub fn write_activities_csv<W: Write>(writer: W, rows: &[ActivityCsvRow]) -> Crm
                 .iter()
                 .map(|header| row.custom_fields.get(header).cloned().unwrap_or_default()),
         );
-        wtr.write_record(&record)
+        write_safe_record(&mut wtr, &record)
             .map_err(|e| CrmError::Csv(e.to_string()))?;
     }
 
@@ -2839,7 +2876,7 @@ pub fn write_organizations_csv<W: Write>(writer: W, rows: &[OrganizationCsvRow])
         "description".to_string(),
     ];
     headers.extend(custom_headers.iter().cloned());
-    wtr.write_record(&headers)
+    write_safe_record(&mut wtr, &headers)
         .map_err(|e| CrmError::Csv(e.to_string()))?;
 
     for row in rows {
@@ -2861,7 +2898,7 @@ pub fn write_organizations_csv<W: Write>(writer: W, rows: &[OrganizationCsvRow])
                 .iter()
                 .map(|header| row.custom_fields.get(header).cloned().unwrap_or_default()),
         );
-        wtr.write_record(&record)
+        write_safe_record(&mut wtr, &record)
             .map_err(|e| CrmError::Csv(e.to_string()))?;
     }
 
@@ -2883,11 +2920,11 @@ pub fn write_notes_csv<W: Write>(writer: W, rows: &[NoteCsvRow]) -> CrmResult<()
         .has_headers(false)
         .from_writer(writer);
 
-    wtr.write_record(["entity_type", "entity_id", "content"])
+    write_safe_record(&mut wtr, ["entity_type", "entity_id", "content"])
         .map_err(|e| CrmError::Csv(e.to_string()))?;
 
     for row in rows {
-        wtr.write_record([&row.entity_type, &row.entity_id, &row.content])
+        write_safe_record(&mut wtr, [&row.entity_type, &row.entity_id, &row.content])
             .map_err(|e| CrmError::Csv(e.to_string()))?;
     }
 
@@ -2907,11 +2944,11 @@ pub fn write_tag_definitions_csv<W: Write>(
         .has_headers(false)
         .from_writer(writer);
 
-    wtr.write_record(["name", "color"])
+    write_safe_record(&mut wtr, ["name", "color"])
         .map_err(|e| CrmError::Csv(e.to_string()))?;
 
     for row in rows {
-        wtr.write_record([&row.name, row.color.as_deref().unwrap_or_default()])
+        write_safe_record(&mut wtr, [&row.name, row.color.as_deref().unwrap_or_default()])
             .map_err(|e| CrmError::Csv(e.to_string()))?;
     }
 
@@ -2929,11 +2966,11 @@ pub fn write_tag_links_csv<W: Write>(writer: W, rows: &[TagLinkCsvRow]) -> CrmRe
         .has_headers(false)
         .from_writer(writer);
 
-    wtr.write_record(["entity_type", "entity_id", "tag_id"])
+    write_safe_record(&mut wtr, ["entity_type", "entity_id", "tag_id"])
         .map_err(|e| CrmError::Csv(e.to_string()))?;
 
     for row in rows {
-        wtr.write_record([&row.entity_type, &row.entity_id, &row.tag_id])
+        write_safe_record(&mut wtr, [&row.entity_type, &row.entity_id, &row.tag_id])
             .map_err(|e| CrmError::Csv(e.to_string()))?;
     }
 
@@ -2954,7 +2991,7 @@ pub fn write_custom_field_definitions_csv<W: Write>(
         .has_headers(false)
         .from_writer(writer);
 
-    wtr.write_record([
+    write_safe_record(&mut wtr, [
         "entity_type",
         "field_name",
         "field_type",
@@ -2964,7 +3001,7 @@ pub fn write_custom_field_definitions_csv<W: Write>(
     .map_err(|e| CrmError::Csv(e.to_string()))?;
 
     for row in rows {
-        wtr.write_record([
+        write_safe_record(&mut wtr, [
             &row.entity_type,
             &row.field_name,
             &row.field_type,
@@ -2987,7 +3024,7 @@ pub fn write_audit_log_csv<W: Write>(writer: W, rows: &[AuditLogCsvRow]) -> CrmR
         .has_headers(false)
         .from_writer(writer);
 
-    wtr.write_record([
+    write_safe_record(&mut wtr, [
         "id",
         "actor_type",
         "actor_id",
@@ -3002,7 +3039,7 @@ pub fn write_audit_log_csv<W: Write>(writer: W, rows: &[AuditLogCsvRow]) -> CrmR
     .map_err(|e| CrmError::Csv(e.to_string()))?;
 
     for row in rows {
-        wtr.write_record([
+        write_safe_record(&mut wtr, [
             &row.id,
             &row.actor_type,
             row.actor_id.as_deref().unwrap_or_default(),
@@ -3034,7 +3071,7 @@ pub fn write_external_clients_csv<W: Write>(
         .has_headers(false)
         .from_writer(writer);
 
-    wtr.write_record([
+    write_safe_record(&mut wtr, [
         "id",
         "name",
         "client_type",
@@ -3049,7 +3086,7 @@ pub fn write_external_clients_csv<W: Write>(
 
     for row in rows {
         let enabled = row.enabled.to_string();
-        wtr.write_record([
+        write_safe_record(&mut wtr, [
             &row.id,
             &row.name,
             &row.client_type,
@@ -3081,7 +3118,7 @@ pub fn write_external_client_permissions_csv<W: Write>(
         .has_headers(false)
         .from_writer(writer);
 
-    wtr.write_record([
+    write_safe_record(&mut wtr, [
         "id",
         "client_id",
         "tool_name",
@@ -3097,7 +3134,7 @@ pub fn write_external_client_permissions_csv<W: Write>(
         let can_read = row.can_read.to_string();
         let can_write = row.can_write.to_string();
         let requires_confirmation = row.requires_confirmation.to_string();
-        wtr.write_record([
+        write_safe_record(&mut wtr, [
             &row.id,
             &row.client_id,
             &row.tool_name,
@@ -3130,7 +3167,7 @@ pub fn write_proposed_actions_csv<W: Write>(
         .has_headers(false)
         .from_writer(writer);
 
-    wtr.write_record([
+    write_safe_record(&mut wtr, [
         "id",
         "external_client_id",
         "client_id",
@@ -3153,7 +3190,7 @@ pub fn write_proposed_actions_csv<W: Write>(
     .map_err(|e| CrmError::Csv(e.to_string()))?;
 
     for row in rows {
-        wtr.write_record([
+        write_safe_record(&mut wtr, [
             &row.id,
             row.external_client_id.as_deref().unwrap_or_default(),
             row.client_id.as_deref().unwrap_or_default(),
@@ -3179,4 +3216,43 @@ pub fn write_proposed_actions_csv<W: Write>(
     wtr.flush().map_err(|e| CrmError::Csv(e.to_string()))?;
     log::info!("Wrote {} proposed action rows to CSV", rows.len());
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn spreadsheet_formula_cells_are_neutralized_without_changing_numbers() {
+        assert_eq!(spreadsheet_safe_cell("=1+1"), "'=1+1");
+        assert_eq!(spreadsheet_safe_cell("  +cmd"), "'  +cmd");
+        assert_eq!(spreadsheet_safe_cell("\t@SUM(A1:A2)"), "'\t@SUM(A1:A2)");
+        assert_eq!(spreadsheet_safe_cell("-1+1"), "'-1+1");
+        assert_eq!(spreadsheet_safe_cell("-125.50"), "-125.50");
+        assert_eq!(spreadsheet_safe_cell("+25.0"), "+25.0");
+        assert_eq!(spreadsheet_safe_cell("ordinary text"), "ordinary text");
+    }
+
+    #[test]
+    fn note_csv_export_neutralizes_formula_payloads() {
+        let rows = [NoteCsvRow {
+            entity_type: "contact".to_owned(),
+            entity_id: "local-id".to_owned(),
+            content: "\n=HYPERLINK(\"https://example.invalid\",\"open\")".to_owned(),
+        }];
+        let mut output = Vec::new();
+
+        write_notes_csv(&mut output, &rows).expect("CSV export should succeed");
+
+        let mut reader = csv::ReaderBuilder::new().from_reader(output.as_slice());
+        let exported = reader
+            .records()
+            .nth(0)
+            .expect("note row should exist")
+            .expect("note row should parse");
+        assert_eq!(
+            exported.get(2),
+            Some("'\n=HYPERLINK(\"https://example.invalid\",\"open\")")
+        );
+    }
 }
