@@ -22,7 +22,13 @@
 </svelte:head>
 
 <div class="min-h-screen bg-slate-950">
-	<nav class="mx-auto flex max-w-6xl justify-end px-6 pt-5" aria-label="Navegación principal">
+	<nav class="mx-auto flex max-w-6xl justify-end gap-2 px-6 pt-5" aria-label="Navegación principal">
+		<a
+			href="/quick-client"
+			class="rounded-lg border border-sky-300/30 px-3 py-2 text-sm font-medium text-sky-100 hover:bg-sky-300/10 focus-visible:outline-2 focus-visible:outline-sky-300"
+		>
+			Alta rápida
+		</a>
 		<a
 			href="/capture"
 			class="rounded-lg border border-white/15 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-sky-300"

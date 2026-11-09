@@ -36,6 +36,8 @@ pub struct ClientFormState {
     pub email: String,
     pub curp: String,
     pub presupuesto: String,
+    #[serde(default)]
+    pub zona_interes: String,
     pub tipo_credito: String,
     pub empresa: String,
     pub ingreso_mensual: String,
@@ -574,6 +576,7 @@ fn validate_client(client: &ClientFormState, draft: bool) -> Result<(), AppError
         || client.email.len() > 254
         || client.curp.len() > 18
         || client.presupuesto.len() > 32
+        || client.zona_interes.len() > 160
         || client.ingreso_mensual.len() > 32
         || client.tipo_credito.len() > 40
         || client.empresa.len() > 200
@@ -753,6 +756,7 @@ mod tests {
             email: String::new(),
             curp: String::new(),
             presupuesto: "0".to_owned(),
+            zona_interes: String::new(),
             tipo_credito: String::new(),
             empresa: String::new(),
             ingreso_mensual: String::new(),
@@ -803,5 +807,30 @@ mod tests {
         client.telefono.clear();
         client.consentimientos.privacy_notice = false;
         assert!(validate_client(&client, true).is_ok());
+    }
+
+    #[test]
+    fn older_client_records_default_to_no_interest_zone() {
+        let client: ClientFormState = serde_json::from_str(
+            r#"{
+                "id": null,
+                "nombre": "Ana",
+                "apellidoPaterno": "Lopez",
+                "apellidoMaterno": "",
+                "telefono": "",
+                "email": "",
+                "curp": "",
+                "presupuesto": "",
+                "tipoCredito": "",
+                "empresa": "",
+                "ingresoMensual": "",
+                "edad": "",
+                "edadLaboral": "",
+                "notas": "",
+                "consentimientos": { "privacyNotice": false, "osint": false }
+            }"#,
+        )
+        .expect("registro previo debe seguir siendo legible");
+        assert!(client.zona_interes.is_empty());
     }
 }

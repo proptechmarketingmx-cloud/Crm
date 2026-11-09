@@ -14,6 +14,7 @@ export interface ClientFormState {
 	email: string;
 	curp: string;
 	presupuesto: string;
+	zonaInteres: string;
 	tipoCredito: string;
 	empresa: string;
 	ingresoMensual: string;

@@ -29,6 +29,7 @@
 		email: '',
 		curp: '',
 		presupuesto: '',
+		zonaInteres: '',
 		tipoCredito: '',
 		empresa: '',
 		ingresoMensual: '',
@@ -506,12 +507,20 @@
 				Los datos se guardan en la base cifrada de este dispositivo; no se envían a la nube.
 			</p>
 		</div>
-		<a
-			href="/"
-			class="rounded-lg border border-white/15 px-3 py-2 text-sm text-slate-200 hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-sky-300"
-		>
-			Volver al matching
-		</a>
+		<nav class="flex flex-wrap gap-2" aria-label="Navegación">
+			<a
+				href="/quick-client"
+				class="rounded-lg border border-sky-300/30 px-3 py-2 text-sm text-sky-100 hover:bg-sky-300/10 focus-visible:outline-2 focus-visible:outline-sky-300"
+			>
+				Alta rápida
+			</a>
+			<a
+				href="/"
+				class="rounded-lg border border-white/15 px-3 py-2 text-sm text-slate-200 hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-sky-300"
+			>
+				Volver al matching
+			</a>
+		</nav>
 	</header>
 
 	<nav class="flex gap-2" aria-label="Tipo de registro">
@@ -592,6 +601,7 @@
 						</select>
 					</label>
 					<FormField label="Presupuesto (MXN) *" bind:value={client.presupuesto} type="number" min="0" step="1000" required inputmode="decimal" />
+					<FormField label="Zona de interés" bind:value={client.zonaInteres} autocomplete="address-level2" />
 					<FormField label="Ingreso mensual (MXN)" bind:value={client.ingresoMensual} type="number" min="0" step="500" inputmode="decimal" />
 					<FormField label="Edad" bind:value={client.edad} type="number" min="18" max="120" />
 					<FormField label="Antigüedad laboral (años)" bind:value={client.edadLaboral} type="number" min="0" max="100" />
