@@ -441,6 +441,13 @@ server, conflict-resolution policy, tombstone model, and credential story need
 separate implementation, tests, and public documentation before they are treated
 as supported behavior.
 
+At database startup, local maintenance removes synchronized changelog rows older
+than 30 days and trims older synchronized rows beyond the latest 1,000 per entity.
+Pending rows (`synced_at IS NULL`) are preserved. Startup logs the remaining row
+count and emits a warning above 100,000 rows. This is synchronous startup
+maintenance, not a background worker; a future transport must confirm that its
+sync acknowledgement semantics make this retention policy safe.
+
 ---
 
 ## Database Schema

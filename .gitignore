@@ -1,24 +1,36 @@
+# Node and Svelte build/dependency artifacts
 node_modules/
 .svelte-kit/
 dist/
 build/
 test-results/
+coverage/
+playwright-report/
+playwright/.cache/
+
+# Rust and Tauri build artifacts
 target/
 src-tauri/target/
 apps/desktop/src-tauri/target/
 src-tauri/gen/
 apps/desktop/src-tauri/gen/
+
+# Local secrets and databases
 .env
 .env.*
 !.env.example
 *.local
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+
+# IDE and OS metadata
 .idea/
 .vscode/
-coverage/
-playwright-report/
-playwright/.cache/
 .DS_Store
+
+# Local-only notes
 wiki/
-*.db
-*.sqlite
-*.sqlite3

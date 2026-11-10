@@ -585,7 +585,7 @@
     "emailIntegration": "Email reachability probe",
     "emailIntegrationEnabled": "Enable TCP reachability probe",
     "emailComposeHint": "Sanidi seva za hiari na tumia kutunga barua pepe kwa mailto kwenye kifaa hiki.",
-    "emailProbeOnly": "Jaribio la kufikiwa tu. 900CRM haitumi wala kupokea barua pepe na haihifadhi nywila za barua pepe.",
+    "emailProbeOnly": "Jaribio la muunganisho pekee. 900CRM haitumi wala kupokea barua pepe na haihifadhi nywila za kisanduku. Seva za umma pekee; SMTP 25/465/587 au IMAP 143/993; jaribio moja kwa dakika, hadi sekunde 5.",
     "smtpHost": "SMTP probe host",
     "smtpPort": "Bandari ya SMTP",
     "smtpUsername": "Jina la mtumiaji la SMTP",

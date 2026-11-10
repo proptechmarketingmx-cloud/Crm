@@ -585,7 +585,7 @@
     "emailIntegration": "Email reachability probe",
     "emailIntegrationEnabled": "Enable TCP reachability probe",
     "emailComposeHint": "Cấu hình máy chủ tùy chọn và dùng thao tác soạn thư cục bộ qua mailto.",
-    "emailProbeOnly": "Chỉ kiểm tra khả năng kết nối. 900CRM không gửi hoặc nhận email và không lưu mật khẩu hộp thư.",
+    "emailProbeOnly": "Chỉ kiểm tra khả năng kết nối. 900CRM không gửi hoặc nhận email và không lưu mật khẩu hộp thư. Chỉ máy chủ công khai; cổng SMTP 25/465/587 hoặc IMAP 143/993; tối đa một lần kiểm tra mỗi phút và 5 giây.",
     "smtpHost": "SMTP probe host",
     "smtpPort": "Cổng SMTP",
     "smtpUsername": "Tên đăng nhập SMTP",

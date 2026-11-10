@@ -585,7 +585,7 @@
     "emailIntegration": "Email reachability probe",
     "emailIntegrationEnabled": "Enable TCP reachability probe",
     "emailComposeHint": "Configurez des serveurs optionnels et utilisez la composition locale via mailto.",
-    "emailProbeOnly": "Test de joignabilité uniquement. 900CRM n’envoie ni ne reçoit d’e-mails et ne stocke pas les mots de passe de messagerie.",
+    "emailProbeOnly": "Test de connectivité uniquement. 900CRM n’envoie ni ne reçoit d’e-mails et ne stocke pas les mots de passe. Hôtes publics uniquement ; ports SMTP 25/465/587 ou IMAP 143/993 ; un test par minute, limité à 5 secondes.",
     "smtpHost": "SMTP probe host",
     "smtpPort": "Port SMTP",
     "smtpUsername": "Nom d'utilisateur SMTP",

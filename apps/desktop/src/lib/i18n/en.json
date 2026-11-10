@@ -586,7 +586,7 @@
     "emailIntegrationEnabled": "Enable TCP reachability probe",
     "emailProbeBadge": "TCP probe",
     "emailComposeHint": "Configure optional mail servers and use local mailto compose actions.",
-    "emailProbeOnly": "Reachability only. 900CRM does not send or receive email and does not store mailbox passwords.",
+    "emailProbeOnly": "Reachability only. 900CRM does not send or receive email or store mailbox passwords. Public hosts only; SMTP ports 25/465/587 or IMAP 143/993; one test per minute, with a 5-second limit.",
     "smtpHost": "SMTP probe host",
     "smtpPort": "SMTP Port",
     "smtpUsername": "SMTP Username",

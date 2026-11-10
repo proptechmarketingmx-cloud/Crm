@@ -4,11 +4,18 @@
 //! it validates reachability to configured IMAP/SMTP endpoints via TCP without
 //! introducing always-on background sync or heavy protocol stacks.
 
-use std::io::{Read, Write};
-use std::net::{IpAddr, SocketAddr, TcpStream, ToSocketAddrs};
+use std::net::IpAddr;
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+const MAX_TIMEOUT_MS: u64 = 5_000;
+const MIN_TIMEOUT_MS: u64 = 500;
+const PROBE_INTERVAL: Duration = Duration::from_secs(60);
+
+static LAST_EMAIL_PROBE: Mutex<Option<Instant>> = Mutex::new(None);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -58,73 +65,76 @@ pub async fn test_email_server_connection(
     request: EmailConnectionTestRequest,
 ) -> Result<EmailConnectionTestResult, String> {
     let host = request.host.trim().to_string();
+    let protocol_name = protocol_name(&request.protocol);
+    log::info!(
+        "Email connectivity probe requested (protocol={}, port={})",
+        protocol_name,
+        request.port
+    );
     if host.is_empty() {
         return Err("Host is required".to_string());
     }
-    if request.port == 0 {
-        return Err("Port must be greater than 0".to_string());
+    if host.len() > 253 || host.chars().any(char::is_control) {
+        return Err("Host is invalid or too long".to_string());
     }
+    if !is_allowed_port(&request.protocol, request.port) {
+        return Err("Port is not allowed for this email protocol".to_string());
+    }
+    reserve_email_probe_slot()?;
 
-    let timeout_ms = request.timeout_ms.unwrap_or(2_500).clamp(500, 10_000);
-    let protocol = request.protocol.clone();
-    let host_for_task = host.clone();
+    let timeout = Duration::from_millis(
+        request
+            .timeout_ms
+            .unwrap_or(2_500)
+            .clamp(MIN_TIMEOUT_MS, MAX_TIMEOUT_MS),
+    );
+    let protocol = request.protocol;
     let port = request.port;
 
-    let result = tokio::task::spawn_blocking(move || {
+    let probe = async move {
         let started = Instant::now();
-        let addr_string = format!("{}:{}", host_for_task, port);
+        let addr_string = format!("{}:{}", host, port);
 
-        let addrs: Vec<SocketAddr> = match addr_string.to_socket_addrs() {
-            Ok(it) => it.collect(),
+        let addrs = match tokio::net::lookup_host(&addr_string).await {
+            Ok(addrs) => addrs.collect::<Vec<_>>(),
             Err(err) => {
-                return EmailConnectionTestResult {
+                return failure_result(
                     protocol,
-                    host: host_for_task,
+                    host,
                     port,
-                    success: false,
-                    latency_ms: started.elapsed().as_millis(),
-                    details: format!("DNS resolution failed: {}", err),
-                    banner: None,
-                };
+                    started,
+                    format!("DNS resolution failed: {}", err),
+                );
             }
         };
 
-        let addr = match addrs.into_iter().find(|a| !is_disallowed_address(a.ip())) {
-            Some(a) => a,
+        let addr = match addrs.into_iter().find(|addr| !is_disallowed_address(addr.ip())) {
+            Some(addr) => addr,
             None => {
-                return EmailConnectionTestResult {
+                return failure_result(
                     protocol,
-                    host: host_for_task,
+                    host,
                     port,
-                    success: false,
-                    latency_ms: started.elapsed().as_millis(),
-                    details: "Host resolves to a disallowed (private/loopback/metadata) address"
-                        .to_string(),
-                    banner: None,
-                };
+                    started,
+                    "Host resolves to a disallowed (private/loopback/metadata) address".to_string(),
+                );
             }
         };
 
-        let timeout = Duration::from_millis(timeout_ms);
-        let mut stream = match TcpStream::connect_timeout(&addr, timeout) {
-            Ok(s) => s,
+        let mut stream = match tokio::net::TcpStream::connect(addr).await {
+            Ok(stream) => stream,
             Err(err) => {
-                return EmailConnectionTestResult {
+                return failure_result(
                     protocol,
-                    host: host_for_task,
+                    host,
                     port,
-                    success: false,
-                    latency_ms: started.elapsed().as_millis(),
-                    details: format!("Connection failed: {}", err),
-                    banner: None,
-                };
+                    started,
+                    format!("Connection failed: {}", err),
+                );
             }
         };
 
-        let _ = stream.set_read_timeout(Some(Duration::from_millis(700)));
-        let _ = stream.set_write_timeout(Some(Duration::from_millis(700)));
-
-        let banner = probe_banner(&mut stream, &protocol, port);
+        let banner = probe_banner(&mut stream, &protocol, port).await;
         let details = match protocol {
             EmailProtocol::Smtp => {
                 if port == 465 {
@@ -144,31 +154,109 @@ pub async fn test_email_server_connection(
 
         EmailConnectionTestResult {
             protocol,
-            host: host_for_task,
+            host,
             port,
             success: true,
             latency_ms: started.elapsed().as_millis(),
             details,
             banner,
         }
-    })
-    .await
-    .map_err(|err| format!("Email test task failed: {}", err))?;
+    };
+    let result = match tokio::time::timeout(timeout, probe).await {
+        Ok(result) => result,
+        Err(_) => {
+            log::warn!(
+                "Email connectivity probe timed out (protocol={}, port={})",
+                protocol_name,
+                request.port
+            );
+            return Err("Email connectivity test timed out (maximum 5 seconds)".to_string());
+        }
+    };
+    log::info!(
+        "Email connectivity probe completed (protocol={}, port={}, success={})",
+        protocol_name,
+        request.port,
+        result.success
+    );
 
     Ok(result)
 }
 
-fn probe_banner(stream: &mut TcpStream, protocol: &EmailProtocol, port: u16) -> Option<String> {
+fn failure_result(
+    protocol: EmailProtocol,
+    host: String,
+    port: u16,
+    started: Instant,
+    details: String,
+) -> EmailConnectionTestResult {
+    EmailConnectionTestResult {
+        protocol,
+        host,
+        port,
+        success: false,
+        latency_ms: started.elapsed().as_millis(),
+        details,
+        banner: None,
+    }
+}
+
+fn protocol_name(protocol: &EmailProtocol) -> &'static str {
+    match protocol {
+        EmailProtocol::Smtp => "smtp",
+        EmailProtocol::Imap => "imap",
+    }
+}
+
+fn is_allowed_port(protocol: &EmailProtocol, port: u16) -> bool {
+    match protocol {
+        EmailProtocol::Smtp => matches!(port, 25 | 465 | 587),
+        EmailProtocol::Imap => matches!(port, 143 | 993),
+    }
+}
+
+fn reserve_email_probe_slot() -> Result<(), String> {
+    let now = Instant::now();
+    let mut last_probe = LAST_EMAIL_PROBE
+        .lock()
+        .map_err(|_| "Email connection test is unavailable".to_string())?;
+    if !reserve_probe_slot(&mut last_probe, now) {
+        return Err("Wait one minute before testing another email server".to_string());
+    }
+    Ok(())
+}
+
+fn reserve_probe_slot(last_probe: &mut Option<Instant>, now: Instant) -> bool {
+    if last_probe.is_some_and(|last| now.duration_since(last) < PROBE_INTERVAL) {
+        return false;
+    }
+    *last_probe = Some(now);
+    true
+}
+
+async fn probe_banner(
+    stream: &mut tokio::net::TcpStream,
+    protocol: &EmailProtocol,
+    port: u16,
+) -> Option<String> {
     if matches!(protocol, EmailProtocol::Smtp) && port != 465 {
-        let _ = stream.write_all(b"EHLO 900crm.local\r\nQUIT\r\n");
+        let _ = tokio::time::timeout(
+            Duration::from_millis(500),
+            stream.write_all(b"EHLO 900crm.local\r\nQUIT\r\n"),
+        )
+        .await;
     }
     if matches!(protocol, EmailProtocol::Imap) && port != 993 {
-        let _ = stream.write_all(b"a1 CAPABILITY\r\na2 LOGOUT\r\n");
+        let _ = tokio::time::timeout(
+            Duration::from_millis(500),
+            stream.write_all(b"a1 CAPABILITY\r\na2 LOGOUT\r\n"),
+        )
+        .await;
     }
 
     let mut buf = [0u8; 256];
-    match stream.read(&mut buf) {
-        Ok(n) if n > 0 => {
+    match tokio::time::timeout(Duration::from_millis(500), stream.read(&mut buf)).await {
+        Ok(Ok(n)) if n > 0 => {
             let raw = String::from_utf8_lossy(&buf[..n]).trim().to_string();
             if raw.is_empty() {
                 None
@@ -231,7 +319,11 @@ fn is_carrier_grade_nat(addr: std::net::Ipv4Addr) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::is_disallowed_address;
+    use std::time::{Duration, Instant};
+
+    use super::{
+        is_allowed_port, is_disallowed_address, reserve_probe_slot, EmailProtocol, PROBE_INTERVAL,
+    };
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
     #[test]
@@ -282,5 +374,34 @@ mod tests {
         assert!(!is_disallowed_address(IpAddr::V6(Ipv6Addr::new(
             0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8888
         ))));
+    }
+
+    #[test]
+    fn allows_only_email_service_ports_for_each_protocol() {
+        assert!(is_allowed_port(&EmailProtocol::Smtp, 25));
+        assert!(is_allowed_port(&EmailProtocol::Smtp, 465));
+        assert!(is_allowed_port(&EmailProtocol::Smtp, 587));
+        assert!(!is_allowed_port(&EmailProtocol::Smtp, 143));
+        assert!(!is_allowed_port(&EmailProtocol::Smtp, 22));
+
+        assert!(is_allowed_port(&EmailProtocol::Imap, 143));
+        assert!(is_allowed_port(&EmailProtocol::Imap, 993));
+        assert!(!is_allowed_port(&EmailProtocol::Imap, 587));
+        assert!(!is_allowed_port(&EmailProtocol::Imap, 22));
+    }
+
+    #[test]
+    fn limits_probe_frequency_to_one_per_minute() {
+        let start = Instant::now();
+        let mut last_probe = None;
+        assert!(reserve_probe_slot(&mut last_probe, start));
+        assert!(!reserve_probe_slot(
+            &mut last_probe,
+            start + Duration::from_secs(59)
+        ));
+        assert!(reserve_probe_slot(
+            &mut last_probe,
+            start + PROBE_INTERVAL
+        ));
     }
 }

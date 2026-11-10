@@ -585,7 +585,7 @@
     "emailIntegration": "Email reachability probe",
     "emailIntegrationEnabled": "Enable TCP reachability probe",
     "emailComposeHint": "वैकल्पिक मेल सर्वर कॉन्फ़िगर करें और स्थानीय mailto कंपोज़ क्रियाओं का उपयोग करें।",
-    "emailProbeOnly": "केवल पहुँच जाँच। 900CRM ईमेल भेजता या प्राप्त नहीं करता और मेलबॉक्स पासवर्ड नहीं रखता।",
+    "emailProbeOnly": "केवल कनेक्टिविटी जाँच। 900CRM ईमेल नहीं भेजता या प्राप्त करता और मेलबॉक्स पासवर्ड संग्रहीत नहीं करता। केवल सार्वजनिक होस्ट; SMTP पोर्ट 25/465/587 या IMAP 143/993; प्रति मिनट एक जाँच, अधिकतम 5 सेकंड।",
     "smtpHost": "SMTP probe host",
     "smtpPort": "SMTP पोर्ट",
     "smtpUsername": "SMTP उपयोगकर्ता नाम",

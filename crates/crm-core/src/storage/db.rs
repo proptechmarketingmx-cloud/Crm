@@ -111,6 +111,8 @@ impl Database {
         let mut db = Self { conn, db_path };
         db.configure()?;
         db.run_migrations()?;
+        let cutoff = (chrono::Utc::now() - chrono::Duration::days(30)).to_rfc3339();
+        crate::storage::sync::prune_synced_changes(&db.conn, &cutoff, 1_000)?;
 
         log::info!("Database initialized successfully");
         Ok(db)

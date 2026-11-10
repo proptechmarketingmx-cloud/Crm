@@ -585,7 +585,7 @@
     "emailIntegration": "Email reachability probe",
     "emailIntegrationEnabled": "Enable TCP reachability probe",
     "emailComposeHint": "ঐচ্ছিক মেইল সার্ভার কনফিগার করুন এবং লোকাল mailto কম্পোজ ব্যবহার করুন।",
-    "emailProbeOnly": "শুধু পৌঁছানো যায় কি না দেখা হয়। 900CRM ইমেইল পাঠায় বা গ্রহণ করে না এবং মেইলবক্স পাসওয়ার্ড রাখে না।",
+    "emailProbeOnly": "শুধু সংযোগ পরীক্ষা। 900CRM ইমেইল পাঠায় বা গ্রহণ করে না এবং মেইলবক্সের পাসওয়ার্ড রাখে না। শুধু পাবলিক হোস্ট; SMTP পোর্ট 25/465/587 বা IMAP 143/993; প্রতি মিনিটে একটি পরীক্ষা, সর্বোচ্চ ৫ সেকেন্ড।",
     "smtpHost": "SMTP probe host",
     "smtpPort": "SMTP পোর্ট",
     "smtpUsername": "SMTP ব্যবহারকারীর নাম",

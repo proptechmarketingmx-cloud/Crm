@@ -1074,6 +1074,7 @@
                   class="btn btn-secondary btn-sm"
                   type="button"
                   onclick={testSmtpConnection}
+                  title={t('settings.emailProbeOnly')}
                   disabled={smtpTestLoading}
                 >
                   {smtpTestLoading ? t('common.loading') : t('settings.emailTestConnection')}
@@ -1128,6 +1129,7 @@
                   class="btn btn-secondary btn-sm"
                   type="button"
                   onclick={testImapConnection}
+                  title={t('settings.emailProbeOnly')}
                   disabled={imapTestLoading}
                 >
                   {imapTestLoading ? t('common.loading') : t('settings.emailTestConnection')}

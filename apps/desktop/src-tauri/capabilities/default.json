@@ -10,10 +10,6 @@
     "dialog:allow-open",
     "dialog:allow-save",
     "shell:allow-open",
-    "notification:default",
-    {
-      "identifier": "fs:scope",
-      "allow": ["$APPDATA/**", "$DOCUMENT/**", "$DESKTOP/**", "$DOWNLOAD/**"]
-    }
+    "notification:default"
   ]
 }

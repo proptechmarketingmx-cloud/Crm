@@ -585,7 +585,7 @@
     "emailIntegration": "Email reachability probe",
     "emailIntegrationEnabled": "Enable TCP reachability probe",
     "emailComposeHint": "قم بإعداد خوادم اختيارية واستخدم إنشاء الرسائل محليًا عبر mailto.",
-    "emailProbeOnly": "للتحقق من الوصول فقط. لا يرسل 900CRM البريد ولا يستقبله ولا يخزن كلمات مرور صندوق البريد.",
+    "emailProbeOnly": "للتحقق من الاتصال فقط. لا يرسل 900CRM البريد ولا يستقبله ولا يخزن كلمات مرور صندوق البريد. المضيفون العموميون فقط؛ منافذ SMTP ‏25/465/587 أو IMAP ‏143/993؛ اختبار واحد في الدقيقة وبحد أقصى 5 ثوانٍ.",
     "smtpHost": "SMTP probe host",
     "smtpPort": "منفذ SMTP",
     "smtpUsername": "اسم مستخدم SMTP",

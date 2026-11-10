@@ -220,6 +220,66 @@ pub fn clear_old_changes(conn: &Connection, before_timestamp: &str) -> CrmResult
     Ok(deleted as u64)
 }
 
+/// Elimina cambios sincronizados vencidos y limita el historial por entidad.
+///
+/// Los cambios pendientes (`synced_at IS NULL`) nunca se eliminan. La poda
+/// conserva como máximo `max_per_entity` cambios recientes por entidad,
+/// además de eliminar cambios sincronizados anteriores a la fecha límite.
+pub fn prune_synced_changes(
+    conn: &Connection,
+    before_timestamp: &str,
+    max_per_entity: u64,
+) -> CrmResult<u64> {
+    if max_per_entity == 0 {
+        return Err(CrmError::Database(
+            "The changelog retention limit must be greater than zero".to_string(),
+        ));
+    }
+    let max_per_entity = i64::try_from(max_per_entity).map_err(|_| {
+        CrmError::Database("The changelog retention limit is too large".to_string())
+    })?;
+    let deleted = conn.execute(
+        r#"
+        DELETE FROM sync_changelog
+        WHERE synced_at IS NOT NULL
+          AND (
+            timestamp < ?1
+            OR id IN (
+                SELECT id
+                FROM (
+                    SELECT id,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY entity_type, entity_id
+                               ORDER BY timestamp DESC, id DESC
+                           ) AS retention_rank
+                    FROM sync_changelog
+                    WHERE synced_at IS NOT NULL
+                )
+                WHERE retention_rank > ?2
+            )
+          )
+        "#,
+        params![before_timestamp, max_per_entity],
+    )?;
+    let remaining: u64 =
+        conn.query_row("SELECT COUNT(*) FROM sync_changelog", [], |row| row.get(0))?;
+    const CHANGELOG_WARNING_THRESHOLD: u64 = 100_000;
+    if remaining > CHANGELOG_WARNING_THRESHOLD {
+        log::warn!(
+            "sync_changelog contains {} rows, above the {} row threshold",
+            remaining,
+            CHANGELOG_WARNING_THRESHOLD
+        );
+    } else {
+        log::info!(
+            "sync_changelog pruning completed: deleted={}, remaining={}",
+            deleted,
+            remaining
+        );
+    }
+    Ok(deleted as u64)
+}
+
 /// Returns the timestamp of the most recent changelog entry.
 ///
 /// Returns `None` if the changelog is empty.
@@ -255,4 +315,70 @@ fn row_to_sync_change(row: &rusqlite::Row<'_>) -> rusqlite::Result<SyncChange> {
         timestamp: row.get(6)?,
         device_id: row.get(7)?,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use rusqlite::Connection;
+
+    use super::prune_synced_changes;
+
+    #[test]
+    fn pruning_preserves_pending_rows_and_recent_rows_per_entity() {
+        let conn = Connection::open_in_memory().expect("open in-memory database");
+        conn.execute_batch(
+            r#"
+            CREATE TABLE sync_changelog (
+                id INTEGER PRIMARY KEY,
+                entity_type TEXT NOT NULL,
+                entity_id TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                synced_at TEXT
+            );
+            INSERT INTO sync_changelog VALUES
+                (1, 'contact', 'a', '2024-01-01T00:00:00Z', '2024-01-01T00:00:00Z'),
+                (2, 'contact', 'a', '2024-02-01T00:00:00Z', '2024-02-01T00:00:00Z'),
+                (3, 'contact', 'a', '2024-03-01T00:00:00Z', '2024-03-01T00:00:00Z'),
+                (4, 'contact', 'a', '2024-04-01T00:00:00Z', NULL),
+                (5, 'contact', 'b', '2024-01-01T00:00:00Z', NULL),
+                (6, 'contact', 'c', '2024-03-10T00:00:00Z', '2024-03-10T00:00:00Z'),
+                (7, 'contact', 'c', '2024-03-11T00:00:00Z', '2024-03-11T00:00:00Z'),
+                (8, 'contact', 'c', '2024-03-12T00:00:00Z', '2024-03-12T00:00:00Z');
+            "#,
+        )
+        .expect("create test changelog");
+
+        let deleted =
+            prune_synced_changes(&conn, "2024-02-15T00:00:00Z", 2).expect("prune changelog");
+
+        assert_eq!(deleted, 3);
+        let remaining: u64 = conn
+            .query_row("SELECT COUNT(*) FROM sync_changelog", [], |row| row.get(0))
+            .expect("count remaining rows");
+        assert_eq!(remaining, 5);
+        let old_synced: u64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sync_changelog WHERE id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .expect("check deleted old row");
+        assert_eq!(old_synced, 0);
+        let pending: u64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sync_changelog WHERE synced_at IS NULL",
+                [],
+                |row| row.get(0),
+            )
+            .expect("count pending rows");
+        assert_eq!(pending, 2);
+        let overflow_synced: u64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sync_changelog WHERE id = 6",
+                [],
+                |row| row.get(0),
+            )
+            .expect("check row beyond per-entity limit");
+        assert_eq!(overflow_synced, 0);
+    }
 }

@@ -585,7 +585,7 @@
     "emailIntegration": "Email reachability probe",
     "emailIntegrationEnabled": "Enable TCP reachability probe",
     "emailComposeHint": "Saita uwar garken imel na zabi kuma yi amfani da mailto na gida.",
-    "emailProbeOnly": "Gwaji na isa kawai. 900CRM ba ya aika ko karɓar imel kuma ba ya adana kalmomin shiga na akwatin imel.",
+    "emailProbeOnly": "Gwajin haɗi kawai. 900CRM ba ya aika ko karɓar imel kuma ba ya adana kalmomin sirrin akwatin imel. Sabar jama'a kawai; tashoshin SMTP 25/465/587 ko IMAP 143/993; gwaji ɗaya a minti, iyakar daƙiƙa 5.",
     "smtpHost": "SMTP probe host",
     "smtpPort": "Tashar SMTP",
     "smtpUsername": "Sunan Mai Amfani na SMTP",
